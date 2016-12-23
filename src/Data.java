@@ -1,3 +1,5 @@
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -13,26 +15,16 @@ import java.util.List;
 
 public class Data {
 	
-	public static List<Column> getColumns(DatabaseMetaData database, String schemaName, String tableName) throws SQLException{
-		
-		List<Column> columns=new ArrayList<Column>();
-		ResultSet result=database.getColumns(schemaName,null,tableName,null);
-		
-		while(result.next()){
-			Column column = new Column(result.getInt("DATA_TYPE"),
-					result.getString("TYPE_NAME"),result.getString("COLUMN_NAME"));
-			column.setNullable(result.getBoolean("NULLABLE"));
-			columns.add(column);
-		}
-		return columns;
-	}
+	
 	public static List<Table> getTables(DatabaseMetaData database, String schemaName) throws SQLException{
 		
 		List<Table> tables=new ArrayList<Table>();
 		ResultSet result=database.getTables(schemaName, null, null, null);
 		while (result.next()) {
 			String tableName=result.getString("TABLE_NAME");
-			Table table = new Table(schemaName, tableName,getColumns(database,schemaName,tableName),null);
+			Table table = new Table(schemaName,tableName,null,null);
+			table.getColumns(database, schemaName, tableName);
+			table.getPrimaryKeys(database, schemaName, tableName);
 			tables.add(table);
 		}
 		return tables;
@@ -58,7 +50,7 @@ public class Data {
 					column.calculateLD(table.getName());
 					column.checkEnds();
 					column.calculateReps(schema);
-					column.isPrimaryKey(database, schemaName, table.getName());
+					//column.isPrimaryKey(database, schemaName, table.getName());
 				}
 			}
 
@@ -108,26 +100,29 @@ public class Data {
 			DatabaseMetaData database = connection.getMetaData();
 			Statement stmt = connection.createStatement();
 
-			
+			PrintWriter writer = new PrintWriter("data2.ods", "UTF-8");
 
-			ResultSet result = database.getCatalogs();
+			ResultSet result = stmt.executeQuery("select distinct TABLE_SCHEMA from information_schema.columns"
+					+ " where TABLE_SCHEMA not in ('information_schema', 'predictor_factory', 'mysql', 'meta', 'Phishing', 'fairytale')"
+					+ " and TABLE_SCHEMA not like 'arnaud_%' and TABLE_SCHEMA not like 'ctu_%'");
 			
 			while (result.next()) {
+				
+				
 				String schemaName=result.getString(1);
 				schema=getPK(database,stmt,schemaName);
 				
 				Iterator<Table> it=schema.iterator();
 				while(it.hasNext()){
 				
-					System.out.println(it.next().toString());
+					writer.print(it.next().toString());
 				}
-			}
-						
-			
+			}			
 			
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		
 		
 	}
 

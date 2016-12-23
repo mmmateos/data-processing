@@ -121,7 +121,18 @@ public class Column {
 	public void setRepetitions(int repetitions) {
 		this.repetitions = repetitions;
 	}
+	
     
+	public boolean isPrimaryKey() {
+		return isPrimaryKey;
+	}
+
+
+	public void setPrimaryKey(boolean isPrimaryKey) {
+		this.isPrimaryKey = isPrimaryKey;
+	}
+
+
 	public void calculateLD(String a) {
         String b=this.name;
         
@@ -169,10 +180,11 @@ public class Column {
 	}
 	public void isUnique(Connection conn, String tableName) throws Exception{
 		
+		if(!this.name.contains(" ")&&!this.name.contains("-")){
 		ResultSet rs = null;
 		String query="select count("+this.name+") - count(distinct "+this.name+") from "+tableName;
-		
-			try{
+			
+		try{
 			Statement stmt = conn.createStatement();
 			rs = stmt.executeQuery(query);
 		
@@ -183,6 +195,7 @@ public class Column {
 		} catch (Exception e){
 			e.printStackTrace();
 		}
+		}
 	}
 	public void isUniqueConstraint(DatabaseMetaData database, String schemaName, String tableName) throws SQLException{
 		ResultSet result=database.getIndexInfo(schemaName, schemaName, tableName, true, true);
@@ -190,15 +203,9 @@ public class Column {
 			this.isUniqueConstraint = result.getBoolean("NON_UNIQUE");
 		}
 	}
-	public void isPrimaryKey(DatabaseMetaData database, String schemaName, String tableName) throws SQLException{
-		ResultSet result = database.getPrimaryKeys(schemaName , schemaName, tableName);
-		while(result.next()){
-			this.isPrimaryKey = result.getString(6).equals("PRIMARY") ? true:false;
-		}
-	}
 	
 	public String toString(){
-		return this.name+" "+this.dataTypeName+" "+this.isUnique+" "+this.isUniqueConstraint+" "+
-				this.isNullable+" "+this.levenshteinDistance+" "+this.repetitions+" "+this.endsWith+" "+this.isPrimaryKey;
+		return this.name+"\t"+this.dataTypeName+"\t"+this.isUnique+"\t"+this.isUniqueConstraint+"\t"+
+				this.isNullable+"\t"+this.levenshteinDistance+"\t"+this.repetitions+"\t"+this.endsWith+"\t"+this.isPrimaryKey;
 	}
 }

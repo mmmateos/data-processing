@@ -1,3 +1,6 @@
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -51,12 +54,42 @@ public class Table {
 	public void setPrimaryKey(List<Column> primaryKey) {
 		this.primaryKey = primaryKey;
 	}
-    
+	
+	public void getColumns(DatabaseMetaData database, String schemaName, String tableName) throws SQLException{
+		
+		List<Column> columns=new ArrayList<Column>();
+		ResultSet result=database.getColumns(schemaName,null,tableName,null);
+		
+		while(result.next()){
+			Column column = new Column(result.getInt("DATA_TYPE"),
+					result.getString("TYPE_NAME"),result.getString("COLUMN_NAME"));
+			column.setNullable(result.getBoolean("NULLABLE"));
+			columns.add(column);
+		}
+		this.columnList = columns;
+	}
+	
+	public void getPrimaryKeys(DatabaseMetaData database, String schemaName, String tableName) throws SQLException{
+		List<Column> primaryKeys=new ArrayList<Column>();
+		ResultSet result = database.getPrimaryKeys(schemaName , schemaName, tableName);
+		while(result.next()){
+			Iterator<Column> it=this.columnList.iterator();
+			while(it.hasNext()){
+				Column col=it.next();
+				if(col.name.equals(result.getString(4))){
+					primaryKeys.add(col);
+					col.setPrimaryKey(true);
+				}
+			}
+		}
+		this.primaryKey = primaryKeys;
+	}
+	
 	public String toString(){
 		String table="";
 		Iterator<Column> it=this.columnList.iterator();
 		while(it.hasNext()){
-			table+=this.schemaName+" "+this.name+" "+it.next().toString()+"\n";
+			table+=this.schemaName+"\t"+this.name+"\t"+it.next().toString()+"\n";
 		}
 		return table;
 	}
