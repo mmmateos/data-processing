@@ -1,129 +1,86 @@
-import java.io.IOException;
+import com.mysql.jdbc.jdbc2.optional.MysqlConnectionPoolDataSource;
+
+import javax.sql.DataSource;
 import java.io.PrintWriter;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 
 
 
 public class Data {
-	
-	
-	public static List<Table> getTables(DatabaseMetaData database, String schemaName) throws SQLException{
-		
-		List<Table> tables=new ArrayList<Table>();
-		ResultSet result=database.getTables(schemaName, null, null, null);
-		while (result.next()) {
-			String tableName=result.getString("TABLE_NAME");
-			Table table = new Table(schemaName,tableName,null,null);
-			table.getColumns(database, schemaName, tableName);
-			table.getPrimaryKeys(database, schemaName, tableName);
-			tables.add(table);
+
+
+	private static List<Table> getTables(DatabaseMetaData database, String schemaName) throws SQLException{
+		List<Table> tables = new ArrayList<>();
+
+		try (ResultSet result=database.getTables(schemaName, null, null, null)) {
+			while (result.next()) {
+				String tableName = result.getString("TABLE_NAME");
+				Table table = new Table(schemaName, tableName, null, null);
+				table.getColumns(database, schemaName, tableName);
+				table.getPrimaryKeys(database, schemaName, tableName);
+				tables.add(table);
+			}
 		}
+
 		return tables;
 	}
-	
-	
-	public static List<Table> getPK(DatabaseMetaData database, Statement stmt, String schemaName){
-		List<Table> schema=new ArrayList<Table>();
-		Connection connection=null;
-		try {
-			connection=getSchemaConnection(schemaName);
-			schema=getTables(database,schemaName);
-			Iterator<Table> it=schema.iterator();
-			
-			while(it.hasNext()){
-				Table table=it.next();
-				
-				Iterator<Column> ic=table.getColumnList().iterator();
-				while(ic.hasNext()){
-					Column column=ic.next();
-					column.isUnique(connection, table.getName());
-					column.isUniqueConstraint(database, schemaName, table.getName());
-					column.calculateLD(table.getName());
-					column.checkEnds();
-					column.calculateReps(schema);
-					//column.isPrimaryKey(database, schemaName, table.getName());
+
+	private static List<Table> getFeatures(DatabaseMetaData database, Connection connection, String schemaName) throws SQLException{
+		List<Table> schema = getTables(database, schemaName);
+
+		for (Table table : schema) {
+			for (Column column : table.getColumnList()) {
+				column.isUnique(connection, schemaName, table.getName());
+				column.isUniqueConstraint(database, schemaName, table.getName());
+				column.calculateLD(table.getName());
+				column.checkEnds();
+				column.calculateReps(schema);
+			}
+		}
+
+		return schema;
+	}
+
+	private static DataSource getDataSource() {
+		MysqlConnectionPoolDataSource dataSource = new MysqlConnectionPoolDataSource();
+		dataSource.setUrl("jdbc:mysql://relational.fit.cvut.cz");
+		dataSource.setUser("guest");
+		dataSource.setPassword("relational");
+
+		return dataSource;
+	}
+
+
+	public static void main(String[] args) {
+		String query = "select distinct TABLE_SCHEMA from information_schema.columns"
+				+ " where TABLE_SCHEMA not in ('information_schema', 'predictor_factory', 'mysql', 'meta', 'Phishing', 'fairytale')"
+				+ " and TABLE_SCHEMA not like 'arnaud_%' and TABLE_SCHEMA not like 'ctu_%'";
+
+		try (Connection connection = getDataSource().getConnection();
+		     Statement stmt = connection.createStatement();
+		     ResultSet result = stmt.executeQuery(query)){
+
+			DatabaseMetaData database = connection.getMetaData();
+
+			try (PrintWriter writer = new PrintWriter("data2.ods", "UTF-8")) {
+				while (result.next()) {
+					String schemaName = result.getString(1);
+					List<Table> schema = getFeatures(database, connection, schemaName);
+
+					for (Table table : schema) {
+						writer.print(table.toString());
+						writer.flush();
+					}
 				}
 			}
-
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		return schema;
-		
-	}
-	public static Connection getConnection() throws Exception{
-		
-		Connection connection = null;
-		
-		try{
-			
-			String connectionURL = "jdbc:mysql://relational.fit.cvut.cz";
-			Class.forName("com.mysql.jdbc.Driver").newInstance();
-			connection = DriverManager.getConnection(connectionURL,"guest","relational");		
-			
-		} catch (Exception e){
-			e.printStackTrace();
 
-		}
-		return connection;
-	}
-	public static Connection getSchemaConnection(String schemaName){
-		Connection connection=null;
-		try{
-			
-			String connectionURL = "jdbc:mysql://relational.fit.cvut.cz";
-			Class.forName("com.mysql.jdbc.Driver").newInstance();
-			connection = DriverManager.getConnection(connectionURL+"/"+schemaName,"guest","relational");
-		
-		} catch (Exception e){
-		e.printStackTrace();
-		}
-		return connection;
-	}
 
-	
-	public static void main(String[] args) {
-		//List<String> catalogs=new ArrayList<String>();
-		List<Table> schema=new ArrayList<Table>();
-		try {
-			
-			Connection connection = getConnection();
-			DatabaseMetaData database = connection.getMetaData();
-			Statement stmt = connection.createStatement();
-
-			PrintWriter writer = new PrintWriter("data2.ods", "UTF-8");
-
-			ResultSet result = stmt.executeQuery("select distinct TABLE_SCHEMA from information_schema.columns"
-					+ " where TABLE_SCHEMA not in ('information_schema', 'predictor_factory', 'mysql', 'meta', 'Phishing', 'fairytale')"
-					+ " and TABLE_SCHEMA not like 'arnaud_%' and TABLE_SCHEMA not like 'ctu_%'");
-			
-			while (result.next()) {
-				
-				
-				String schemaName=result.getString(1);
-				schema=getPK(database,stmt,schemaName);
-				
-				Iterator<Table> it=schema.iterator();
-				while(it.hasNext()){
-				
-					writer.print(it.next().toString());
-				}
-			}			
-			
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		
-		
 	}
 
 }
