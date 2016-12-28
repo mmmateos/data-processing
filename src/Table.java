@@ -84,6 +84,18 @@ public class Table {
 		}
 		this.primaryKey = primaryKeys;
 	}
+	public void hasUniqueConstraint(DatabaseMetaData database, String schemaName, String tableName) throws SQLException{
+		ResultSet result=database.getIndexInfo(schemaName, schemaName, tableName, true, true);
+		while(result.next()){
+			Iterator<Column> it=this.columnList.iterator();
+			while(it.hasNext()){
+				Column col=it.next();
+				if(col.name.equals(result.getString(9))){
+					col.setUniqueConstraint(true);
+				}
+			}
+		}
+	}
 	
 	public String toString(){
 		String table="";

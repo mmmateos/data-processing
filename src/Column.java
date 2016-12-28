@@ -131,8 +131,22 @@ public class Column {
 	public void setPrimaryKey(boolean isPrimaryKey) {
 		this.isPrimaryKey = isPrimaryKey;
 	}
+	
 
 
+	public boolean isUniqueConstraint() {
+		return isUniqueConstraint;
+	}
+
+
+	public void setUniqueConstraint(boolean isUniqueConstraint) {
+		this.isUniqueConstraint = isUniqueConstraint;
+	}
+
+
+	/**
+	 * https://rosettacode.org/wiki/Levenshtein_distance#Java
+	 */
 	public void calculateLD(String a) {
         String b=this.name;
         
@@ -197,12 +211,7 @@ public class Column {
 		}
 		}
 	}
-	public void isUniqueConstraint(DatabaseMetaData database, String schemaName, String tableName) throws SQLException{
-		ResultSet result=database.getIndexInfo(schemaName, schemaName, tableName, true, true);
-		while(result.next()){
-			this.isUniqueConstraint = result.getBoolean("NON_UNIQUE");
-		}
-	}
+	
 	
 	public String toString(){
 		return this.name+"\t"+this.dataTypeName+"\t"+this.isUnique+"\t"+this.isUniqueConstraint+"\t"+

@@ -25,6 +25,7 @@ public class Data {
 			Table table = new Table(schemaName,tableName,null,null);
 			table.getColumns(database, schemaName, tableName);
 			table.getPrimaryKeys(database, schemaName, tableName);
+			table.hasUniqueConstraint(database, schemaName, tableName);
 			tables.add(table);
 		}
 		return tables;
@@ -46,11 +47,9 @@ public class Data {
 				while(ic.hasNext()){
 					Column column=ic.next();
 					column.isUnique(connection, table.getName());
-					column.isUniqueConstraint(database, schemaName, table.getName());
 					column.calculateLD(table.getName());
 					column.checkEnds();
 					column.calculateReps(schema);
-					//column.isPrimaryKey(database, schemaName, table.getName());
 				}
 			}
 
@@ -92,7 +91,7 @@ public class Data {
 
 	
 	public static void main(String[] args) {
-		//List<String> catalogs=new ArrayList<String>();
+		
 		List<Table> schema=new ArrayList<Table>();
 		try {
 			
@@ -100,7 +99,7 @@ public class Data {
 			DatabaseMetaData database = connection.getMetaData();
 			Statement stmt = connection.createStatement();
 
-			PrintWriter writer = new PrintWriter("data2.ods", "UTF-8");
+			PrintWriter writer = new PrintWriter("data.ods", "UTF-8");
 
 			ResultSet result = stmt.executeQuery("select distinct TABLE_SCHEMA from information_schema.columns"
 					+ " where TABLE_SCHEMA not in ('information_schema', 'predictor_factory', 'mysql', 'meta', 'Phishing', 'fairytale')"
@@ -117,7 +116,8 @@ public class Data {
 				
 					writer.print(it.next().toString());
 				}
-			}			
+			}
+			
 			
 		} catch (Exception e) {
 			e.printStackTrace();
