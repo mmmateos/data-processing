@@ -8,7 +8,7 @@ import java.util.List;
 
 public class Table {
 
-	private String schemaName;                                // Schema name
+	private String schemaName;                              // Schema name
 	private String name;                                    // Table name
 	private List<Column> columnList = new ArrayList<>();    // All columns in the table
 	private List<Column> primaryKey = new ArrayList<>();    // The most likely PK (PK can be a composite -> List)
@@ -117,7 +117,7 @@ public class Table {
 					Data.CSV_QUOTE + schemaName + Data.CSV_QUOTE,
 					Data.CSV_QUOTE + name + Data.CSV_QUOTE,
 					column.toString()
-			) +"\n";
+			) + "\n";
 		}
 		return table;
 	}
