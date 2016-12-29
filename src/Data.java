@@ -88,7 +88,7 @@ public class Data {
 	public static void main(String[] args) {
 		String query = "select distinct TABLE_SCHEMA from information_schema.columns"
 				+ " where TABLE_SCHEMA not in ('information_schema', 'performance_schema', 'predictor_factory', 'mysql', 'meta', 'Phishing', 'fairytale')"
-				+ " and TABLE_SCHEMA not like 'arnaud_%' and TABLE_SCHEMA not like 'ctu_%' and TABLE_SCHEMA >= 'tpcc'";
+				+ " and TABLE_SCHEMA not like 'arnaud_%' and TABLE_SCHEMA not like 'ctu_%'";
 
 		try (Connection connection = getDataSource().getConnection();
 		     Statement stmt = connection.createStatement();
@@ -96,7 +96,7 @@ public class Data {
 
 			DatabaseMetaData database = connection.getMetaData();
 
-			try (PrintWriter writer = new PrintWriter("dataJM.ods", "UTF-8")) {
+			try (PrintWriter writer = new PrintWriter("data.ods", "UTF-8")) {
 				writer.println(getHeader());
 				while (result.next()) {
 					String schemaName = result.getString(1);
