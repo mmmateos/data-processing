@@ -71,19 +71,19 @@ public class Table {
 				columns.add(column);
 			}
 		}
-		this.columnList = columns;
+		columnList = columns;
 	}
 
 	public void getPrimaryKeys(DatabaseMetaData database, String schemaName, String tableName) throws SQLException {
 		List<Column> primaryKeys = new ArrayList<>();
 
-		for (Column col : this.columnList) {
+		for (Column col : columnList) {
 			col.setPrimaryKey(false);
 		}
 
 		try (ResultSet result = database.getPrimaryKeys(schemaName, schemaName, tableName)) {
 			while (result.next()) {
-				for (Column column : this.columnList) {
+				for (Column column : columnList) {
 					if (column.getName().equals(result.getString(4))) {
 						primaryKeys.add(column);
 						column.setPrimaryKey(true);
@@ -91,17 +91,17 @@ public class Table {
 				}
 			}
 		}
-		this.primaryKey = primaryKeys;
+		primaryKey = primaryKeys;
 	}
 
 	public void getUniqueConstraint(DatabaseMetaData database, String schemaName, String tableName) throws SQLException {
-		for (Column col : this.columnList) {
+		for (Column col : columnList) {
 			col.setUniqueConstraint(false);
 		}
 
 		try (ResultSet result = database.getIndexInfo(schemaName, schemaName, tableName, true, true)) {
 			while (result.next()) {
-				for (Column col : this.columnList) {
+				for (Column col : columnList) {
 					if (col.getName().equals(result.getString(9))) {
 						col.setUniqueConstraint(true);
 					}
@@ -112,7 +112,7 @@ public class Table {
 
 	public String toString() {
 		String table = "";
-		for (Column column : this.columnList) {
+		for (Column column : columnList) {
 			table += String.join(Data.CSV_SEPARATOR,
 					Data.CSV_QUOTE + schemaName + Data.CSV_QUOTE,
 					Data.CSV_QUOTE + name + Data.CSV_QUOTE,

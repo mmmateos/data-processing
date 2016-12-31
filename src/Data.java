@@ -35,9 +35,13 @@ public class Data {
 		for (Table table : schema) {
 			for (Column column : table.getColumnList()) {
 				column.isUnique(connection, schemaName, table.getName());
-				column.calculateLD(table.getName());
-				column.checkEnds();
-				column.calculateReps(schema);
+				column.setLD(table.getName());
+				column.setKeywords();
+				column.setRepetition(schema);
+				column.setPrefixSchemaCount(schema);
+				column.setSuffixSchemaCount(schema);
+				column.setPrefixTableCount(table);
+				column.setSuffixTableCount(table);
 			}
 		}
 
@@ -61,17 +65,23 @@ public class Data {
 				"isNullable",
 				"levenshteinDistance",
 				"repetitions",
-				"endsWithNo",
-				"endsWithCode",
-				"endsWithAux",
-				"endsWithName",
-				"endsWithSk",
-				"endsWithId",
-				"endsWithPk",
-				"endsWithType",
-				"endsWithKey",
-				"endsWithNbr",
-				"endsWith",
+				"prefixSchemaCount",
+				"suffixSchemaCount",
+				"prefixTableCount",
+				"suffixTableCount",
+				"prefixRatio",
+				"suffixRatio",
+				"containsNo",
+				"containsCode",
+				"containsAux",
+				"containsName",
+				"containsSk",
+				"containsId",
+				"containsPk",
+				"containsType",
+				"containsKey",
+				"containsNbr",
+				"contains",
 				"isPrimaryKey"
 		);
 	}
@@ -96,7 +106,7 @@ public class Data {
 
 			DatabaseMetaData database = connection.getMetaData();
 
-			try (PrintWriter writer = new PrintWriter("data.ods", "UTF-8")) {
+			try (PrintWriter writer = new PrintWriter("estimatePK_v2.csv", "UTF-8")) {
 				writer.println(getHeader());
 				while (result.next()) {
 					String schemaName = result.getString(1);

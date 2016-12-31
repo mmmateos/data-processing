@@ -2,12 +2,14 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class Column {
+	private static final List<String> KEYWORDS = Arrays.asList("aux", "code", "id", "key", "name", "nbr", "no", "pk", "sk", "type");
 
 	private Integer dataType;               // Data type as defined by JDBC
 	private String dataTypeName;            // Data type as defined by JDBC
@@ -21,9 +23,13 @@ public class Column {
 	private Boolean isAutoincrement;
 	private Boolean isGeneratedColumn;
 	private String name;                    // Column name
-	private Map<String, Boolean> endsWith;  // Map of booleans of columnName endings
+	private Map<String, Boolean> contains;  // Map of booleans of columnName endings
 	private Integer levenshteinDistance;    // Levenshtein Distance columnName vs. tableName
 	private Integer repetitions;            // Count of columnName repetitions at the schema level
+	private Integer prefixSchemaCount;      // Count of occurrences of the given column name prefix in the schema
+	private Integer suffixSchemaCount;      // Count of occurrences of the given column name suffix in the schema
+	private Integer prefixTableCount;       // Count of occurrences of the given column name prefix in the table
+	private Integer suffixTableCount;       // Count of occurrences of the given column name suffix in the table
 	private Double primaryKeyProbability;   // Estimated probability that this column alone is a PK
 	private Boolean isPrimaryKey;           // The label
 
@@ -128,6 +134,38 @@ public class Column {
 		this.name = name;
 	}
 
+	public Integer getPrefixSchemaCount() {
+		return prefixSchemaCount;
+	}
+
+	public void setPrefixSchemaCount(Integer prefixSchemaCount) {
+		this.prefixSchemaCount = prefixSchemaCount;
+	}
+
+	public Integer getSuffixSchemaCount() {
+		return suffixSchemaCount;
+	}
+
+	public void setSuffixSchemaCount(Integer suffixSchemaCount) {
+		this.suffixSchemaCount = suffixSchemaCount;
+	}
+
+	public Integer getPrefixTableCount() {
+		return prefixTableCount;
+	}
+
+	public void setPrefixTableCount(Integer prefixTableCount) {
+		this.prefixTableCount = prefixTableCount;
+	}
+
+	public Integer getSuffixTableCount() {
+		return suffixTableCount;
+	}
+
+	public void setSuffixTableCount(Integer suffixTableCount) {
+		this.suffixTableCount = suffixTableCount;
+	}
+
 	public double getPrimaryKeyProbability() {
 		return primaryKeyProbability;
 	}
@@ -136,12 +174,12 @@ public class Column {
 		this.primaryKeyProbability = primaryKeyProbability;
 	}
 
-	public Map<String, Boolean> getEndsWith() {
-		return endsWith;
+	public Map<String, Boolean> getContains() {
+		return contains;
 	}
 
-	public void setEndsWith(Map<String, Boolean> endsWith) {
-		this.endsWith = endsWith;
+	public void setContains(Map<String, Boolean> contains) {
+		this.contains = contains;
 	}
 
 	public int getLevenshteinDistance() {
@@ -169,8 +207,8 @@ public class Column {
 	}
 
 	// Source: https://rosettacode.org/wiki/Levenshtein_distance#Java
-	public void calculateLD(String a) {
-		String b = this.name;
+	public void setLD(String a) {
+		String b = name;
 
 		a = a.toLowerCase();
 		b = b.toLowerCase();
@@ -186,40 +224,118 @@ public class Column {
 				costs[j] = cj;
 			}
 		}
-		this.levenshteinDistance = costs[b.length()];
+		levenshteinDistance = costs[b.length()];
 	}
 
-	public void checkEnds() {
-		String[] ends = {"aux", "code", "id", "key", "name", "nbr", "no", "pk", "sk", "type"};
-		Map<String, Boolean> endWith = new HashMap<>();
+	public void setKeywords() {
+		List<String> tokens = Tokenization.split(name);
+		tokens = tokens.stream().map(String::toLowerCase).collect(Collectors.toList());
+		Map<String, Boolean> result = new HashMap<>();
 
-		for (String end : ends) {
-			if (this.name.endsWith(end))
-				endWith.put(end, true);
+		for (String keyword : KEYWORDS) {
+			if (keyword.equals(tokens.get(0)))
+				result.put(keyword, true);
+			else if (keyword.equals(tokens.get(tokens.size()-1)))
+				result.put(keyword, true);
+			else if (tokens.size()>1 && keyword.equals(tokens.get(tokens.size()-2)) && tokens.get(tokens.size()-1).matches("[0-9]+"))
+				result.put(keyword, true);
 			else
-				endWith.put(end, false);
+				result.put(keyword, false);
 		}
-		this.endsWith = endWith;
+
+		contains = result;
 	}
 
-	public void calculateReps(List<Table> schema) {
+	public void setRepetition(List<Table> schema) {
 		int cont = 0;
 		for (Table table : schema) {
 			for (Column column : table.getColumnList()) {
-				if (this.name.equals(column.getName()))
+				if (name.equals(column.getName()))
 					cont++;
 			}
 		}
-		this.repetitions = cont;
+		repetitions = cont;
+	}
+
+	public void setPrefixSchemaCount(List<Table> schema) {
+		if (name.length() < 3) {
+			prefixSchemaCount = 1;
+			return;
+		}
+
+		int cont = 0;
+		for (Table table : schema) {
+			for (Column column : table.getColumnList()) {
+				if (column.getName().length() > 2) {
+					if (name.substring(0, 3).equals(column.getName().substring(0, 3)))
+						cont++;
+				}
+			}
+		}
+		prefixSchemaCount = cont;
+	}
+
+	public void setPrefixTableCount(Table table) {
+		if (name.length() < 3) {
+			prefixTableCount = 1;
+			return;
+		}
+
+		int cont = 0;
+		for (Column column : table.getColumnList()) {
+			if (column.getName().length() > 2) {
+				if (name.substring(0, 3).equals(column.getName().substring(0, 3)))
+					cont++;
+			}
+		}
+
+		prefixTableCount = cont;
+	}
+
+	public void setSuffixSchemaCount(List<Table> schema) {
+		if (name.length() < 3) {
+			suffixSchemaCount = 1;
+			return;
+		}
+
+		int cont = 0;
+		for (Table table : schema) {
+			for (Column column : table.getColumnList()) {
+				if (column.getName().length() > 2) {
+					if (name.substring(name.length() - 3, name.length())
+							.equals(column.getName().substring(column.getName().length() - 3, column.getName().length())))
+						cont++;
+				}
+			}
+		}
+		suffixSchemaCount = cont;
+	}
+
+	public void setSuffixTableCount(Table table) {
+		if (name.length() < 3) {
+			suffixTableCount = 1;
+			return;
+		}
+
+		int cont = 0;
+		for (Column column : table.getColumnList()) {
+			if (column.getName().length() > 2) {
+				if (name.substring(name.length() - 3, name.length())
+						.equals(column.getName().substring(column.getName().length() - 3, column.getName().length())))
+					cont++;
+			}
+		}
+
+		suffixTableCount = cont;
 	}
 
 	public void isUnique(Connection conn, String schemaName, String tableName) throws SQLException {
-		String query = "select count(`" + this.name + "`) - count(distinct `" + this.name + "`) from `" + schemaName + "`.`" + tableName + "`";
+		String query = "select count(`" + name + "`) - count(distinct `" + name + "`) from `" + schemaName + "`.`" + tableName + "`";
 
 		try (Statement stmt = conn.createStatement();
 		     ResultSet rs = stmt.executeQuery(query)) {
 			if (rs.next()) {
-				this.isUnique = (rs.getInt(1) == 0);
+				isUnique = (rs.getInt(1) == 0);
 			}
 		}
 	}
@@ -239,8 +355,14 @@ public class Column {
 				isNullable.toString(),
 				levenshteinDistance.toString(),
 				repetitions.toString(),
-				endsWith.values().stream().map(Object::toString).collect(Collectors.joining(Data.CSV_SEPARATOR)),
-				endsWith.containsValue(true)?"true":"false",
+				prefixSchemaCount.toString(),
+				suffixSchemaCount.toString(),
+				prefixTableCount.toString(),
+				suffixTableCount.toString(),
+				String.valueOf((double)prefixSchemaCount/(double)prefixTableCount),
+				String.valueOf((double)suffixSchemaCount/(double)suffixTableCount),
+				contains.values().stream().map(Object::toString).collect(Collectors.joining(Data.CSV_SEPARATOR)),
+				contains.containsValue(true)?"true":"false",
 				isPrimaryKey.toString()
 		);
 	}
