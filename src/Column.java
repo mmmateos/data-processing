@@ -1,25 +1,48 @@
+import util.Logistic;
+import util.Setting;
+import util.Tokenization;
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class Column {
 	private static final List<String> KEYWORDS = Arrays.asList("aux", "code", "id", "key", "name", "nbr", "no", "pk", "sk", "type");
+	private static final double[] WEIGHTS = new double[]{
+			1.881462417,
+			1.113801441,
+			1.839534369,
+			1.490454794,
+			1.119517412,
+			-2.30306826,
+			-0.760086066,
+			-0.101100801,
+			-0.030199945,
+			-0.096808844,
+			0.049097089,
+			0.140770431,
+			-0.398085495,
+			0.11258666,
+			-0.036447508,
+			2.739129646};
+	private static final double BIAS = 1.654664792;
 
 	private Integer dataType;               // Data type as defined by JDBC
 	private String dataTypeName;            // Data type as defined by JDBC
-	private Boolean isUnique;               // From query
-	private Boolean isUniqueConstraint;     // From getIndexInfo()
+	private Boolean isUnique = false;
+	private Boolean isUniqueConstraint = false;  // From getIndexInfo()
 	private Boolean isNullable;             // From getColumns()
 	private Integer columnSize;
 	private Integer decimalDigits;
 	private Boolean hasDefault;
 	private Integer ordinalPosition;
+	private Integer ordinalPositionEnd;
+	private Integer tableColumnCount;
 	private Boolean isAutoincrement;
 	private Boolean isGeneratedColumn;
 	private String name;                    // Column name
@@ -31,7 +54,7 @@ public class Column {
 	private Integer prefixTableCount;       // Count of occurrences of the given column name prefix in the table
 	private Integer suffixTableCount;       // Count of occurrences of the given column name suffix in the table
 	private Double primaryKeyProbability;   // Estimated probability that this column alone is a PK
-	private Boolean isPrimaryKey;           // The label
+	private Boolean isPrimaryKey = false;   // The label
 
 
 	public Column(String name) {
@@ -54,24 +77,8 @@ public class Column {
 		this.dataTypeName = dataTypeName;
 	}
 
-	public boolean isNullable() {
-		return isNullable;
-	}
-
 	public void setNullable(boolean isNullable) {
 		this.isNullable = isNullable;
-	}
-
-	public boolean isUnique() {
-		return isUnique;
-	}
-
-	public void setUnique(boolean isUnique) {
-		this.isUnique = isUnique;
-	}
-
-	public boolean isUniqueConstraint() {
-		return isUniqueConstraint;
 	}
 
 	public void setUniqueConstraint(boolean uniqueConstraint) {
@@ -94,32 +101,28 @@ public class Column {
 		this.decimalDigits = decimalDigits;
 	}
 
-	public boolean hasDefault() {
-		return hasDefault;
-	}
-
 	public void setHasDefault(boolean hasDefault) {
 		this.hasDefault = hasDefault;
-	}
-
-	public int getOrdinalPosition() {
-		return ordinalPosition;
 	}
 
 	public void setOrdinalPosition(int ordinalPosition) {
 		this.ordinalPosition = ordinalPosition;
 	}
 
-	public boolean isAutoincrement() {
-		return isAutoincrement;
+	public Integer getOrdinalPosition() {
+		return ordinalPosition;
+	}
+
+	public void setOrdinalPositionEnd(Integer ordinalPositionEnd) {
+		this.ordinalPositionEnd = ordinalPositionEnd;
+	}
+
+	public void setTableColumnCount(Integer tableColumnCount) {
+		this.tableColumnCount = tableColumnCount;
 	}
 
 	public void setAutoincrement(boolean autoincrement) {
 		isAutoincrement = autoincrement;
-	}
-
-	public boolean isGeneratedColumn() {
-		return isGeneratedColumn;
 	}
 
 	public void setGeneratedColumn(boolean generatedColumn) {
@@ -130,120 +133,33 @@ public class Column {
 		return name;
 	}
 
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	public Integer getPrefixSchemaCount() {
-		return prefixSchemaCount;
-	}
-
-	public void setPrefixSchemaCount(Integer prefixSchemaCount) {
-		this.prefixSchemaCount = prefixSchemaCount;
-	}
-
-	public Integer getSuffixSchemaCount() {
-		return suffixSchemaCount;
-	}
-
-	public void setSuffixSchemaCount(Integer suffixSchemaCount) {
-		this.suffixSchemaCount = suffixSchemaCount;
-	}
-
-	public Integer getPrefixTableCount() {
-		return prefixTableCount;
-	}
-
-	public void setPrefixTableCount(Integer prefixTableCount) {
-		this.prefixTableCount = prefixTableCount;
-	}
-
-	public Integer getSuffixTableCount() {
-		return suffixTableCount;
-	}
-
-	public void setSuffixTableCount(Integer suffixTableCount) {
-		this.suffixTableCount = suffixTableCount;
-	}
-
 	public double getPrimaryKeyProbability() {
 		return primaryKeyProbability;
-	}
-
-	public void setPrimaryKeyProbability(double primaryKeyProbability) {
-		this.primaryKeyProbability = primaryKeyProbability;
 	}
 
 	public Map<String, Boolean> getContains() {
 		return contains;
 	}
 
-	public void setContains(Map<String, Boolean> contains) {
-		this.contains = contains;
-	}
-
-	public int getLevenshteinDistance() {
-		return levenshteinDistance;
-	}
-
-	public void setLevenshteinDistance(int levenshteinDistance) {
-		this.levenshteinDistance = levenshteinDistance;
-	}
-
-	public int getRepetitions() {
-		return repetitions;
-	}
-
-	public void setRepetitions(int repetitions) {
-		this.repetitions = repetitions;
-	}
-
-	public boolean isPrimaryKey() {
-		return isPrimaryKey;
-	}
-
 	public void setPrimaryKey(boolean isPrimaryKey) {
 		this.isPrimaryKey = isPrimaryKey;
 	}
 
-	// Source: https://rosettacode.org/wiki/Levenshtein_distance#Java
-	public void setLD(String a) {
-		String b = name;
+	public Boolean getPrimaryKey() {
+		return isPrimaryKey;
+	}
 
-		a = a.toLowerCase();
-		b = b.toLowerCase();
-		int[] costs = new int[b.length() + 1];
-		for (int j = 0; j < costs.length; j++)
-			costs[j] = j;
-		for (int i = 1; i <= a.length(); i++) {
-			costs[0] = i;
-			int nw = i - 1;
-			for (int j = 1; j <= b.length(); j++) {
-				int cj = Math.min(1 + Math.min(costs[j], costs[j - 1]), a.charAt(i - 1) == b.charAt(j - 1) ? nw : nw + 1);
-				nw = costs[j];
-				costs[j] = cj;
-			}
-		}
-		levenshteinDistance = costs[b.length()];
+
+	public void setLD(String a) {
+		levenshteinDistance = util.Levenshtein.getDistance(a, name);
+	}
+
+	public Integer getLD() {
+		return levenshteinDistance;
 	}
 
 	public void setKeywords() {
-		List<String> tokens = Tokenization.split(name);
-		tokens = tokens.stream().map(String::toLowerCase).collect(Collectors.toList());
-		Map<String, Boolean> result = new HashMap<>();
-
-		for (String keyword : KEYWORDS) {
-			if (keyword.equals(tokens.get(0)))
-				result.put(keyword, true);
-			else if (keyword.equals(tokens.get(tokens.size()-1)))
-				result.put(keyword, true);
-			else if (tokens.size()>1 && keyword.equals(tokens.get(tokens.size()-2)) && tokens.get(tokens.size()-1).matches("[0-9]+"))
-				result.put(keyword, true);
-			else
-				result.put(keyword, false);
-		}
-
-		contains = result;
+		contains = Tokenization.contains(name, KEYWORDS);
 	}
 
 	public void setRepetition(List<Table> schema) {
@@ -329,6 +245,7 @@ public class Column {
 		suffixTableCount = cont;
 	}
 
+	// Should also check not null
 	public void isUnique(Connection conn, String schemaName, String tableName) throws SQLException {
 		String query = "select count(`" + name + "`) - count(distinct `" + name + "`) from `" + schemaName + "`.`" + tableName + "`";
 
@@ -340,9 +257,35 @@ public class Column {
 		}
 	}
 
+	public void estimatePrimaryKeyProbability() {
+		primaryKeyProbability = Logistic.classify(toArray(), WEIGHTS, BIAS);
+	}
+
+
+	private double[] toArray() {
+		return new double[]{
+				"INTEGER".equals(dataTypeName) ? 1 : 0,
+				"VARCHAR".equals(dataTypeName) ? 1 : 0,
+				"BIGINT".equals(dataTypeName) ? 1 : 0,
+				"SMALLINT".equals(dataTypeName) ? 1 : 0,
+				"TINYINT".equals(dataTypeName) ? 1 : 0,
+				decimalDigits,
+				ordinalPosition,
+				levenshteinDistance,
+				repetitions,
+				prefixSchemaCount,
+				suffixSchemaCount,
+				prefixTableCount,
+				suffixTableCount,
+				(double) prefixSchemaCount / (double) prefixTableCount,
+				(double) suffixSchemaCount / (double) suffixTableCount,
+				contains.containsValue(true) ? 1 : 0
+		};
+	}
+
 	public String toString() {
-		return String.join(Data.CSV_SEPARATOR,
-				Data.CSV_QUOTE + name + Data.CSV_QUOTE,
+		return String.join(Setting.CSV_SEPARATOR,
+				Setting.CSV_QUOTE + name + Setting.CSV_QUOTE,
 				dataTypeName,
 				isUnique.toString(),
 				isUniqueConstraint.toString(),
@@ -350,6 +293,8 @@ public class Column {
 				decimalDigits.toString(),
 				hasDefault.toString(),
 				ordinalPosition.toString(),
+				ordinalPositionEnd.toString(),
+				tableColumnCount.toString(),
 				isAutoincrement.toString(),
 				isGeneratedColumn.toString(),
 				isNullable.toString(),
@@ -359,10 +304,10 @@ public class Column {
 				suffixSchemaCount.toString(),
 				prefixTableCount.toString(),
 				suffixTableCount.toString(),
-				String.valueOf((double)prefixSchemaCount/(double)prefixTableCount),
-				String.valueOf((double)suffixSchemaCount/(double)suffixTableCount),
-				contains.values().stream().map(Object::toString).collect(Collectors.joining(Data.CSV_SEPARATOR)),
-				contains.containsValue(true)?"true":"false",
+				String.valueOf((double) prefixSchemaCount / (double) prefixTableCount),
+				String.valueOf((double) suffixSchemaCount / (double) suffixTableCount),
+				contains.values().stream().map(Object::toString).collect(Collectors.joining(Setting.CSV_SEPARATOR)),
+				contains.containsValue(true) ? "true" : "false",
 				isPrimaryKey.toString()
 		);
 	}

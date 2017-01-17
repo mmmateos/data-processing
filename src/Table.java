@@ -1,3 +1,5 @@
+import util.Setting;
+
 import java.sql.DatabaseMetaData;
 import java.sql.JDBCType;
 import java.sql.ResultSet;
@@ -20,29 +22,52 @@ public class Table {
 		this.primaryKey = primaryKey;
 	}
 
-
-	public String getSchemaName() {
-		return schemaName;
-	}
-
-	public void setSchemaName(String schemaName) {
-		this.schemaName = schemaName;
+	public static String getHeader() {
+		return String.join(Setting.CSV_SEPARATOR,
+				"schema",
+				"table",
+				"column",
+				"dataTypeName",
+				"isUnique",
+				"isUniqueConstraint",
+				"columnSize",
+				"decimalDigits",
+				"hasDefault",
+				"ordinalPosition",
+				"ordinalPositionEnd",
+				"tableColumnCount",
+				"isAutoincrement",
+				"isGeneratedColumn",
+				"isNullable",
+				"levenshteinDistance",
+				"repetitions",
+				"prefixSchemaCount",
+				"suffixSchemaCount",
+				"prefixTableCount",
+				"suffixTableCount",
+				"prefixRatio",
+				"suffixRatio",
+				"containsNo",
+				"containsCode",
+				"containsAux",
+				"containsName",
+				"containsSk",
+				"containsId",
+				"containsPk",
+				"containsType",
+				"containsKey",
+				"containsNbr",
+				"contains",
+				"isPrimaryKey"
+		);
 	}
 
 	public String getName() {
 		return name;
 	}
 
-	public void setName(String name) {
-		this.name = name;
-	}
-
 	public List<Column> getColumnList() {
 		return columnList;
-	}
-
-	public void setColumnList(List<Column> columnList) {
-		this.columnList = columnList;
 	}
 
 	public List<Column> getPrimaryKey() {
@@ -52,6 +77,7 @@ public class Table {
 	public void setPrimaryKey(List<Column> primaryKey) {
 		this.primaryKey = primaryKey;
 	}
+
 
 	public void getColumns(DatabaseMetaData database, String schemaName, String tableName) throws SQLException {
 		List<Column> columns = new ArrayList<>();
@@ -71,15 +97,19 @@ public class Table {
 				columns.add(column);
 			}
 		}
-		columnList = columns;
+		columnList = setCounts(columns);
+	}
+
+	private List<Column> setCounts(List<Column> columnList) {
+		for (Column column : columnList) {
+			column.setTableColumnCount(columnList.size());
+			column.setOrdinalPositionEnd(columnList.size() - column.getOrdinalPosition() + 1);
+		}
+		return columnList;
 	}
 
 	public void getPrimaryKeys(DatabaseMetaData database, String schemaName, String tableName) throws SQLException {
 		List<Column> primaryKeys = new ArrayList<>();
-
-		for (Column col : columnList) {
-			col.setPrimaryKey(false);
-		}
 
 		try (ResultSet result = database.getPrimaryKeys(schemaName, schemaName, tableName)) {
 			while (result.next()) {
@@ -95,10 +125,6 @@ public class Table {
 	}
 
 	public void getUniqueConstraint(DatabaseMetaData database, String schemaName, String tableName) throws SQLException {
-		for (Column col : columnList) {
-			col.setUniqueConstraint(false);
-		}
-
 		try (ResultSet result = database.getIndexInfo(schemaName, schemaName, tableName, true, true)) {
 			while (result.next()) {
 				for (Column col : columnList) {
@@ -110,16 +136,40 @@ public class Table {
 		}
 	}
 
+
+	public String toQuery() {
+		String keys = "";
+		for (Column column : primaryKey) {
+			keys = keys + column.getName() + "`, ";
+		}
+		keys = keys.substring(0, keys.length() - 3);
+		return "ALTER TABLE `" + name + "` ADD PRIMARY KEY (`" + keys + "`);";
+	}
+
+	public String toProbability() {
+		String table = "";
+		for (Column column : columnList) {
+			table += String.join(Setting.CSV_SEPARATOR,
+					Setting.CSV_QUOTE + schemaName + Setting.CSV_QUOTE,
+					Setting.CSV_QUOTE + name + Setting.CSV_QUOTE,
+					Setting.CSV_QUOTE + column.getName() + Setting.CSV_QUOTE,
+					Setting.CSV_QUOTE + column.getPrimaryKeyProbability() + Setting.CSV_QUOTE
+			) + "\n";
+		}
+		return table;
+	}
+
 	public String toString() {
 		String table = "";
 		for (Column column : columnList) {
-			table += String.join(Data.CSV_SEPARATOR,
-					Data.CSV_QUOTE + schemaName + Data.CSV_QUOTE,
-					Data.CSV_QUOTE + name + Data.CSV_QUOTE,
+			table += String.join(Setting.CSV_SEPARATOR,
+					Setting.CSV_QUOTE + schemaName + Setting.CSV_QUOTE,
+					Setting.CSV_QUOTE + name + Setting.CSV_QUOTE,
 					column.toString()
 			) + "\n";
 		}
 		return table;
 	}
+
 
 }
